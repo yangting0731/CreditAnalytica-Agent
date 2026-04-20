@@ -26,40 +26,30 @@ st.title("📊 客群洞察报告")
 if "report_type" not in st.session_state:
     st.session_state.report_type = "全部"
 
-# 章节导航 — 注入到页面导航区域（客群洞察报告与智能问答之间）
+# 章节导航 — 注入到侧边栏页面导航区域下方
 _nav_inject_js = """
 <script>
 (function() {
   const doc = window.parent.document;
-  // 移除旧注入（避免重复）
+  // 移除旧注入
   const old = doc.getElementById('chapter-nav');
   if (old) old.remove();
 
-  // 找到侧边栏里的页面导航链接
-  const links = doc.querySelectorAll('[data-testid="stSidebarNav"] a, [data-testid="stSidebarNav"] li a, nav[data-testid="stSidebarNav"] a');
-  let targetLink = null;
-  for (const a of links) {
-    if (a.textContent.includes('客群洞察报告')) { targetLink = a; break; }
-  }
-  // fallback: 找所有侧边栏链接
-  if (!targetLink) {
-    const allLinks = doc.querySelectorAll('[data-testid="stSidebar"] a');
-    for (const a of allLinks) {
-      if (a.textContent.includes('客群洞察报告')) { targetLink = a; break; }
-    }
-  }
-  if (!targetLink) return;
+  // 找到侧边栏导航容器
+  const navContainer = doc.querySelector('[data-testid="stSidebarNav"]');
+  if (!navContainer) return;
 
-  // 找到包含链接的 li 或最近的容器
-  const container = targetLink.closest('li') || targetLink.parentElement;
-
-  // 创建章节导航
+  // 创建章节导航，追加到导航容器末尾（不插入到列表项之间）
   const nav = doc.createElement('div');
   nav.id = 'chapter-nav';
   nav.innerHTML = `
     <style>
+      #chapter-nav {
+        padding: 4px 0 8px 0;
+        margin: 0 8px;
+      }
       #chapter-nav .ch-link {
-        display: block; padding: 4px 12px 4px 28px; margin: 1px 8px;
+        display: block; padding: 4px 12px 4px 24px; margin: 1px 0;
         font-size: 0.76rem; color: #94A3B8; text-decoration: none;
         border-radius: 4px; cursor: pointer; transition: all 0.15s;
       }
@@ -73,8 +63,7 @@ _nav_inject_js = """
     <a class="ch-link" data-ch="六">六、策略建议</a>
   `;
 
-  // 插入到客群洞察报告之后
-  container.after(nav);
+  navContainer.appendChild(nav);
 
   // 点击跳转
   nav.querySelectorAll('.ch-link').forEach(a => {

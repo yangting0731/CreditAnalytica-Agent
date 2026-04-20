@@ -322,12 +322,6 @@ hr {
     margin-bottom: 6px;
 }
 
-/* ---- 隐藏侧边栏 View more/less 按钮 ---- */
-[data-testid="stSidebarNav"] button,
-[data-testid="stSidebarNav"] [data-testid="collapsedControl"] {
-    display: none !important;
-}
-
 /* ---- Chat ---- */
 [data-testid="stChatMessage"] {
     border-radius: 12px !important;
