@@ -288,6 +288,15 @@ hr {
     letter-spacing: 0.06em;
 }
 
+.ai-insight-box .ai-insight-header span.ai-model {
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: #B45309;
+    text-transform: none;
+    letter-spacing: 0;
+    opacity: 0.75;
+}
+
 .ai-insight-box .ai-insight-body {
     font-size: 0.82rem !important;
     line-height: 1.8;
@@ -313,6 +322,12 @@ hr {
     margin-bottom: 6px;
 }
 
+/* ---- 隐藏侧边栏 View more/less 按钮 ---- */
+[data-testid="stSidebarNav"] button,
+[data-testid="stSidebarNav"] [data-testid="collapsedControl"] {
+    display: none !important;
+}
+
 /* ---- Chat ---- */
 [data-testid="stChatMessage"] {
     border-radius: 12px !important;
@@ -329,18 +344,31 @@ def inject_css():
 
 def render_insight(st_module, text: str, title: str = "AI 分析结论"):
     """在好看的卡片框中渲染 AI 分析结论"""
+    from app.config import CLAUDE_MODEL
     import markdown as _md_lib
     try:
         html_body = _md_lib.markdown(text)
     except Exception:
         # fallback: 简单换行处理
         html_body = text.replace("\n", "<br>")
+    model_tag = f' · <span class="ai-model">{CLAUDE_MODEL}</span>' if CLAUDE_MODEL else ""
     st_module.markdown(f"""
 <div class="ai-insight-box">
   <div class="ai-insight-header">
     <span class="ai-icon">🤖</span>
-    <span class="ai-title">{title}</span>
+    <span class="ai-title">{title}{model_tag}</span>
   </div>
   <div class="ai-insight-body">{html_body}</div>
 </div>
 """, unsafe_allow_html=True)
+
+
+def show_model_badge(st_module):
+    """在侧边栏底部显示当前 AI 模型名"""
+    from app.config import CLAUDE_MODEL, ANTHROPIC_API_KEY
+    with st_module.sidebar:
+        st_module.divider()
+        if ANTHROPIC_API_KEY:
+            st_module.caption(f"🤖 当前模型：**{CLAUDE_MODEL}**")
+        else:
+            st_module.caption("🤖 AI 模型：未配置（使用缓存结论）")

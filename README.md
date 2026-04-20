@@ -55,7 +55,7 @@ cp .env.example .env
 ### 5. 启动
 
 ```bash
-streamlit run app/main.py
+streamlit run app/系统概览.py
 ```
 
 浏览器打开 `http://localhost:8501`
@@ -64,17 +64,15 @@ streamlit run app/main.py
 
 ```
 app/
-  main.py              # 首页
+  系统概览.py            # 首页
   config.py            # 配置
   styles.py            # 设计系统
   pages/
-    1_报告生成.py       # 客群分析报告
+    1_客群洞察报告.py    # 客群分析报告（含地理分布）
     2_智能问答.py       # AI 对话
-    3_宏观环境.py       # 宏观经济
-    4_地图分析.py       # 地理分析
   data/                # 数据加载与分析
   report/              # 图表与 AI 结论
-  agent/               # Claude Agent
+  agent/               # AI Agent
 培训_数据源/            # 数据文件（LFS）
 ```
 

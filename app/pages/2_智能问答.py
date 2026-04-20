@@ -4,6 +4,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 import streamlit as st
 from app.styles import inject_css
+from app.config import CLAUDE_MODEL
 from app.agent.chat import chat_with_agent
 
 st.set_page_config(page_title="智能问答", page_icon="💬", layout="wide")
@@ -38,6 +39,8 @@ with st.expander("💡 试试这些问题", expanded=not st.session_state.chat_m
 # Display chat history
 for i, msg in enumerate(st.session_state.chat_messages):
     with st.chat_message(msg["role"]):
+        if msg["role"] == "assistant" and CLAUDE_MODEL:
+            st.caption(f"🤖 {CLAUDE_MODEL}")
         st.markdown(msg["content"])
         if msg["role"] == "assistant" and i in st.session_state.chat_charts:
             st.plotly_chart(st.session_state.chat_charts[i], use_container_width=True)
@@ -65,6 +68,8 @@ if question:
             ]
             response_text, chart_fig = chat_with_agent(api_messages)
 
+        if CLAUDE_MODEL:
+            st.caption(f"🤖 {CLAUDE_MODEL}")
         st.markdown(response_text)
         if chart_fig is not None:
             st.plotly_chart(chart_fig, use_container_width=True)

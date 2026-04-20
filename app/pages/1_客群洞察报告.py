@@ -3,20 +3,95 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 import streamlit as st
-import json
+import streamlit.components.v1 as components
 from app.styles import inject_css, render_insight
 from app.config import INSTITUTION_TYPES, ANTHROPIC_API_KEY
 from app.data import analyzer
+from app.data.geo_analyzer import (
+    province_distribution, province_risk_profile,
+    province_income_profile,
+)
 from app.report import charts, insights, pptx_export
-from app.report.insights import get_cached_insight
+from app.report.map_charts import (
+    map_province_heatmap, map_province_risk,
+    map_province_income,
+)
+from app.report.insights import generate_section_insight, get_cached_insight
 
-st.set_page_config(page_title="报告生成", page_icon="📊", layout="wide")
+st.set_page_config(page_title="客群洞察报告", page_icon="📊", layout="wide")
 inject_css()
-st.title("📊 客群分析报告")
+st.title("📊 客群洞察报告")
 
 # 用 session_state 记住当前展示的机构类型
 if "report_type" not in st.session_state:
     st.session_state.report_type = "全部"
+
+# 章节导航 — 注入到页面导航区域（客群洞察报告与智能问答之间）
+_nav_inject_js = """
+<script>
+(function() {
+  const doc = window.parent.document;
+  // 移除旧注入（避免重复）
+  const old = doc.getElementById('chapter-nav');
+  if (old) old.remove();
+
+  // 找到侧边栏里的页面导航链接
+  const links = doc.querySelectorAll('[data-testid="stSidebarNav"] a, [data-testid="stSidebarNav"] li a, nav[data-testid="stSidebarNav"] a');
+  let targetLink = null;
+  for (const a of links) {
+    if (a.textContent.includes('客群洞察报告')) { targetLink = a; break; }
+  }
+  // fallback: 找所有侧边栏链接
+  if (!targetLink) {
+    const allLinks = doc.querySelectorAll('[data-testid="stSidebar"] a');
+    for (const a of allLinks) {
+      if (a.textContent.includes('客群洞察报告')) { targetLink = a; break; }
+    }
+  }
+  if (!targetLink) return;
+
+  // 找到包含链接的 li 或最近的容器
+  const container = targetLink.closest('li') || targetLink.parentElement;
+
+  // 创建章节导航
+  const nav = doc.createElement('div');
+  nav.id = 'chapter-nav';
+  nav.innerHTML = `
+    <style>
+      #chapter-nav .ch-link {
+        display: block; padding: 4px 12px 4px 28px; margin: 1px 8px;
+        font-size: 0.76rem; color: #94A3B8; text-decoration: none;
+        border-radius: 4px; cursor: pointer; transition: all 0.15s;
+      }
+      #chapter-nav .ch-link:hover { background: rgba(255,255,255,0.08); color: #FFFFFF; }
+    </style>
+    <a class="ch-link" data-ch="一">一、客群基础画像</a>
+    <a class="ch-link" data-ch="二">二、客群风险分析</a>
+    <a class="ch-link" data-ch="三">三、客群价值分析</a>
+    <a class="ch-link" data-ch="四">四、风险联动分析</a>
+    <a class="ch-link" data-ch="五">五、客群地理分布</a>
+    <a class="ch-link" data-ch="六">六、策略建议</a>
+  `;
+
+  // 插入到客群洞察报告之后
+  container.after(nav);
+
+  // 点击跳转
+  nav.querySelectorAll('.ch-link').forEach(a => {
+    a.addEventListener('click', () => {
+      const prefix = a.dataset.ch;
+      const headers = doc.querySelectorAll('h2, h1');
+      for (const h of headers) {
+        if (h.textContent.includes(prefix + '、')) {
+          h.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          break;
+        }
+      }
+    });
+  });
+})();
+</script>
+"""
 
 # Sidebar controls
 with st.sidebar:
@@ -32,6 +107,9 @@ with st.sidebar:
 # 当前展示的机构类型
 type_filter = st.session_state.report_type
 st.caption(f"当前机构：**{type_filter}** | 切换机构后点击「生成报告」刷新")
+
+# 注入章节导航到页面导航区域（不可见组件）
+components.html(_nav_inject_js, height=0)
 
 # AI 结论缓存 — 同一机构不重复调 API
 if "insight_cache" not in st.session_state:
@@ -269,8 +347,87 @@ report_sections.append({"title": "风险联动分析", "fig": fig_hm, "insight":
 
 st.divider()
 
-# ------ Part 5: 策略建议 ------
-st.header("五、策略建议")
+# ------ Part 5: 客群地理分布 ------
+st.header("五、客群地理分布")
+
+# 5.1 客群地理分布热力图
+st.subheader("5.1 客群地理分布热力图")
+dist_data = province_distribution(type_filter)
+if not dist_data.empty:
+    fig_geo_dist = map_province_heatmap(dist_data)
+    st.plotly_chart(fig_geo_dist, use_container_width=True)
+    with st.expander("Top 10 省份明细"):
+        top10 = dist_data.nlargest(10, "count")[["province", "count", "pct"]].reset_index(drop=True)
+        top10.columns = ["省份", "客群数量", "占比(%)"]
+        top10.index = top10.index + 1
+        st.dataframe(top10, use_container_width=True)
+    insight_geo_dist = _get_insight("geo_distribution",
+        lambda ck: generate_section_insight(
+            "客群地理分布",
+            f"各省客群数量 Top10: {dist_data.nlargest(10, 'count')[['province', 'count', 'pct']].to_json(orient='records', force_ascii=False)}",
+            cache_key=ck))
+    if insight_geo_dist:
+        render_insight(st, insight_geo_dist, "地理分布分析")
+    report_sections.append({"title": "客群地理分布", "fig": fig_geo_dist, "insight": insight_geo_dist or ""})
+else:
+    st.info("暂无省份数据")
+
+st.divider()
+
+# 5.2 各省风险画像
+st.subheader("5.2 各省风险对比")
+risk_geo_data = province_risk_profile()
+if not risk_geo_data.empty:
+    fig_geo_risk = map_province_risk(risk_geo_data)
+    st.plotly_chart(fig_geo_risk, use_container_width=True)
+    with st.expander("风险最高 Top 10 省份"):
+        top10_risk = risk_geo_data.nlargest(10, "risk_score")[
+            ["province", "risk_score", "blacklist_rate", "fraud_rate", "total"]
+        ].reset_index(drop=True)
+        top10_risk.columns = ["省份", "综合风险分", "黑名单命中率(%)", "欺诈高风险率(%)", "样本量"]
+        top10_risk.index = top10_risk.index + 1
+        st.dataframe(top10_risk, use_container_width=True)
+    insight_geo_risk = _get_insight("geo_risk",
+        lambda ck: generate_section_insight(
+            "各省风险画像分析",
+            f"各省风险指标 Top10: {risk_geo_data.nlargest(10, 'risk_score')[['province', 'risk_score', 'blacklist_rate', 'fraud_rate', 'total']].to_json(orient='records', force_ascii=False)}",
+            cache_key=ck))
+    if insight_geo_risk:
+        render_insight(st, insight_geo_risk, "各省风险分析")
+    report_sections.append({"title": "各省风险画像", "fig": fig_geo_risk, "insight": insight_geo_risk or ""})
+else:
+    st.info("风险数据不足")
+
+st.divider()
+
+# 5.3 各省收入资质
+st.subheader("5.3 各省高收入客群占比")
+income_geo_data = province_income_profile()
+if not income_geo_data.empty:
+    fig_geo_income = map_province_income(income_geo_data)
+    st.plotly_chart(fig_geo_income, use_container_width=True)
+    with st.expander("高收入占比 Top 10 省份"):
+        top10_income_geo = income_geo_data.nlargest(10, "high_income_rate")[
+            ["province", "high_income_rate", "total"]
+        ].reset_index(drop=True)
+        top10_income_geo.columns = ["省份", "高收入占比(%)", "样本量"]
+        top10_income_geo.index = top10_income_geo.index + 1
+        st.dataframe(top10_income_geo, use_container_width=True)
+    insight_geo_income = _get_insight("geo_income",
+        lambda ck: generate_section_insight(
+            "各省收入资质分布",
+            f"各省高收入占比 Top10: {income_geo_data.nlargest(10, 'high_income_rate')[['province', 'high_income_rate', 'total']].to_json(orient='records', force_ascii=False)}",
+            cache_key=ck))
+    if insight_geo_income:
+        render_insight(st, insight_geo_income, "收入资质分析")
+    report_sections.append({"title": "各省收入资质", "fig": fig_geo_income, "insight": insight_geo_income or ""})
+else:
+    st.info("收入资质数据不足")
+
+st.divider()
+
+# ------ Part 6: 策略建议 ------
+st.header("六、策略建议")
 strategy_text = _get_insight("strategy", lambda ck: insights.generate_strategy_report(
     analyzer.get_report_summary(type_filter), cache_key=ck))
 if strategy_text:
