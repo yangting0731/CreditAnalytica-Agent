@@ -21,9 +21,9 @@ DATA_FILES = {
 DATA_DICT = PROJECT_ROOT / "培训_数据源" / "数据字典.xlsx"
 
 # Claude API
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
-ANTHROPIC_BASE_URL = os.getenv("ANTHROPIC_BASE_URL", "https://api.anthropic.com")
-CLAUDE_MODEL = "claude-sonnet-4-6"
+ANTHROPIC_API_KEY = os.getenv("API_KEY", "")
+ANTHROPIC_BASE_URL = os.getenv("BASE_URL", "https://llmapi.paratera.com")
+CLAUDE_MODEL = os.getenv("MODEL", "Kimi-K2.5")
 
 # Institution type mapping
 INSTITUTION_TYPES = ["全部", "银行A", "机构B", "机构C"]

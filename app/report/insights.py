@@ -1,7 +1,7 @@
-"""AI 分析结论生成 — 使用 Claude API 生成专业的分析结论和策略建议"""
+"""AI 分析结论生成 — 使用 OpenAI 兼容接口生成专业的分析结论和策略建议"""
 import json
 from pathlib import Path
-import anthropic
+from openai import OpenAI
 from app.config import ANTHROPIC_API_KEY, ANTHROPIC_BASE_URL, CLAUDE_MODEL
 
 # ---- 磁盘缓存 ----
@@ -29,8 +29,8 @@ def get_cached_insight(key: str) -> str:
     return load_insight_cache().get(key, "")
 
 
-def _get_client() -> anthropic.Anthropic:
-    return anthropic.Anthropic(api_key=ANTHROPIC_API_KEY, base_url=ANTHROPIC_BASE_URL)
+def _get_client() -> OpenAI:
+    return OpenAI(api_key=ANTHROPIC_API_KEY, base_url=f"{ANTHROPIC_BASE_URL}/v1")
 
 
 def generate_section_insight(section_name: str, data_summary: str, cache_key: str = "") -> str:
@@ -44,7 +44,7 @@ def generate_section_insight(section_name: str, data_summary: str, cache_key: st
         return ""
 
     client = _get_client()
-    message = client.messages.create(
+    message = client.chat.completions.create(
         model=CLAUDE_MODEL,
         max_tokens=800,
         messages=[{
@@ -71,7 +71,7 @@ def generate_section_insight(section_name: str, data_summary: str, cache_key: st
 4. 不要加总标题，直接输出分点内容"""
         }]
     )
-    result = message.content[0].text
+    result = message.choices[0].message.content
     if cache_key:
         save_insight(cache_key, result)
     return result
@@ -89,7 +89,7 @@ def generate_strategy_report(all_data_summary: dict, cache_key: str = "") -> str
     client = _get_client()
     summary_text = json.dumps(all_data_summary, ensure_ascii=False, default=str)
 
-    message = client.messages.create(
+    message = client.chat.completions.create(
         model=CLAUDE_MODEL,
         max_tokens=2000,
         messages=[{
@@ -127,7 +127,7 @@ def generate_strategy_report(all_data_summary: dict, cache_key: str = "") -> str
 - 用中文"""
         }]
     )
-    result = message.content[0].text
+    result = message.choices[0].message.content
     if cache_key:
         save_insight(cache_key, result)
     return result

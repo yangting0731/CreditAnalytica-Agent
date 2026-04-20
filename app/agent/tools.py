@@ -81,6 +81,19 @@ TOOLS_DEFINITION = [
     },
 ]
 
+# OpenAI function calling 格式
+OPENAI_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": t["name"],
+            "description": t["description"],
+            "parameters": t["input_schema"],
+        }
+    }
+    for t in TOOLS_DEFINITION
+]
+
 
 def execute_tool(tool_name: str, tool_input: dict) -> str:
     """执行工具并返回结果"""
